@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { Laporan, LaporanFilters, LaporanFormData, Category } from '@/lib/types';
+import type { Laporan, LaporanFilters, LaporanFormData, Kategori } from '@/lib/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export function useReports(filters?: LaporanFilters) {
-  const [reports, setReports] = useState<Laporan[]>([]);
+  const [laporan, setReports] = useState<Laporan[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -14,12 +14,7 @@ export function useReports(filters?: LaporanFilters) {
     try {
       let query = supabase
         .from('laporan')
-        .select(`
-          *,
-          category:categories(*),
-          profile:profiles(*)
-        `)
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (filters?.jenis_laporan && filters.jenis_laporan !== 'Semua') {
         query = query.eq('jenis_laporan', filters.jenis_laporan);
@@ -76,12 +71,12 @@ export function useReports(filters?: LaporanFilters) {
     };
   }, []);
 
-  return { reports, loading, refetch: fetchReports };
+  return { laporan, loading, refetch: fetchReports };
 }
 
 export function useUserReports() {
   const { user } = useAuth();
-  const [reports, setReports] = useState<Laporan[]>([]);
+  const [laporan, setReports] = useState<Laporan[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -92,12 +87,9 @@ export function useUserReports() {
     try {
       const { data, error } = await supabase
         .from('laporan')
-        .select(`
-          *,
-          category:categories(*)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('pengguna_id', user.id)
+        .order('dibuat_pada', { ascending: false });
 
       if (error) throw error;
 
@@ -118,11 +110,11 @@ export function useUserReports() {
     fetchReports();
   }, [user]);
 
-  return { reports, loading, refetch: fetchReports };
+  return { laporan, loading, refetch: fetchReports };
 }
 
 export function useReport(id: number) {
-  const [report, setReport] = useState<Laporan | null>(null);
+  const [laporan, setReport] = useState<Laporan | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -131,11 +123,7 @@ export function useReport(id: number) {
       try {
         const { data, error } = await supabase
           .from('laporan')
-          .select(`
-            *,
-            category:categories(*),
-            profile:profiles(*)
-          `)
+          .select('*')
           .eq('id', id)
           .single();
 
@@ -159,24 +147,23 @@ export function useReport(id: number) {
     }
   }, [id]);
 
-  return { report, loading };
+  return { laporan, loading };
 }
 
 export function useCategories() {
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Kategori[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
         const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('nama_kategori');
+          .from('kategori')
+          .select('*');
 
         if (error) throw error;
 
-        setCategories((data || []) as Category[]);
+        setCategories((data || []) as Kategori[]);
       } catch (error) {
         console.error('Error fetching categories:', error);
       } finally {
@@ -210,7 +197,7 @@ export function useCreateReport() {
       const { data: newReport, error } = await supabase
         .from('laporan')
         .insert({
-          user_id: user.id,
+          pengguna_id: user.id,
           kategori_id: data.kategori_id,
           jenis_laporan: data.jenis_laporan,
           judul_barang: data.judul_barang,

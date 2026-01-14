@@ -23,7 +23,9 @@ export const laporanSchema = z.object({
 });
 
 export const klaimSchema = z.object({
-  bukti_tambahan: z.string().min(20, 'Bukti tambahan minimal 20 karakter').max(1000, 'Bukti maksimal 1000 karakter'),
+  bukti_tambahan: z.string().min(10, 'Deskripsi bukti minimal 10 karakter').max(500, 'Deskripsi bukti maksimal 500 karakter'),
+  kontak_telepon: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15, 'Nomor telepon maksimal 15 digit').regex(/^[0-9+\-\s]+$/, 'Format nomor telepon tidak valid'),
+  alasan_klaim: z.string().min(20, 'Alasan klaim minimal 20 karakter').max(1000, 'Alasan klaim maksimal 1000 karakter'),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;

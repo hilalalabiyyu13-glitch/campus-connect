@@ -1,33 +1,33 @@
 // Enums matching database
 export type AppRole = 'admin' | 'mahasiswa' | 'staff';
 export type JenisLaporan = 'Hilang' | 'Ditemukan';
-export type StatusLaporan = 'Menunggu' | 'Verifikasi' | 'Dikembalikan' | 'Selesai';
+export type StatusLaporan = 'Menunggu' | 'Verifikasi' | 'Sedang Diklaim' | 'Dikembalikan' | 'Selesai';
 export type StatusKlaim = 'Menunggu' | 'Disetujui' | 'Ditolak';
 
 // Database types
-export interface Profile {
+export interface Profil {
   id: string;
   email: string | null;
   nama_lengkap: string | null;
-  created_at: string;
-  updated_at: string;
+  dibuat_pada: string;
+  diperbarui_pada: string;
 }
 
 export interface UserRole {
   id: string;
-  user_id: string;
-  role: AppRole;
-  created_at: string;
+  pengguna_id: string;
+  peran: AppRole;
+  dibuat_pada: string;
 }
 
-export interface Category {
+export interface Kategori {
   id: number;
   nama_kategori: string;
 }
 
 export interface Laporan {
   id: number;
-  user_id: string;
+  pengguna_id: string;
   kategori_id: number;
   jenis_laporan: JenisLaporan;
   judul_barang: string;
@@ -36,24 +36,26 @@ export interface Laporan {
   tanggal_kejadian: string;
   gambar_url: string | null;
   status: StatusLaporan;
-  created_at: string;
-  updated_at: string;
+  dibuat_pada: string;
+  diperbarui_pada: string;
   // Joined fields
-  category?: Category;
-  profile?: Profile;
+  kategori?: Kategori;
+  categories?: Kategori;
+  profil?: Profil;
 }
 
 export interface Klaim {
   id: number;
   laporan_ditemukan_id: number;
-  user_id_klaim: string;
+  pengguna_id_klaim: string;
   bukti_tambahan: string | null;
   status_klaim: StatusKlaim;
-  created_at: string;
-  updated_at: string;
+  dibuat_pada: string;
+  diperbarui_pada: string;
   // Joined fields
   laporan?: Laporan;
-  profile?: Profile;
+  profil?: Profil;
+  claimant?: Profil; // Pengaju klaim
 }
 
 // Form types
@@ -70,6 +72,8 @@ export interface LaporanFormData {
 export interface KlaimFormData {
   laporan_ditemukan_id: number;
   bukti_tambahan: string;
+  kontak_telepon: string;
+  alasan_klaim: string;
 }
 
 // Filter types

@@ -1,50 +1,29 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Header } from '@/components/common/Header';
 import { StatusBadge } from '@/components/common/StatusBadge';
+import { ClaimModal } from '@/components/common/ClaimModal';
 import { PageLoading } from '@/components/common/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useReport } from '@/hooks/useReports';
-import { useCreateClaim } from '@/hooks/useClaims';
 import { useAuth } from '@/context/AuthContext';
-import { klaimSchema, KlaimFormSchema } from '@/lib/validation';
-import { ArrowLeft, MapPin, Calendar, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, Send } from 'lucide-react';
 
 export default function ReportDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { report, loading } = useReport(Number(id));
+  const { laporan, loading } = useReport(Number(id));
   const { user } = useAuth();
-  const { createClaim, loading: claimLoading } = useCreateClaim();
-  const [claimDialogOpen, setClaimDialogOpen] = useState(false);
-
-  const form = useForm<KlaimFormSchema>({
-    resolver: zodResolver(klaimSchema),
-    defaultValues: { bukti_tambahan: '' },
-  });
-
-  const handleClaim = async (data: KlaimFormSchema) => {
-    if (!report) return;
-    const result = await createClaim({
-      laporan_ditemukan_id: report.id,
-      bukti_tambahan: data.bukti_tambahan,
-    });
-    if (result) {
-      setClaimDialogOpen(false);
-      navigate('/klaim-saya');
-    }
-  };
+  const [claimModalOpen, setClaimModalOpen] = useState(false);
 
   if (loading) return <PageLoading />;
-  if (!report) return <div className="p-8 text-center">Laporan tidak ditemukan</div>;
+  if (!laporan) return <div className="p-8 text-center">Laporan tidak ditemukan</div>;
 
-  const canClaim = user && report.jenis_laporan === 'Ditemukan' && report.user_id !== user.id;
+  // Validasi: hanya laporan Ditemukan dengan status Menunggu/Verifikasi yang bisa diklaim
+  const canClaim = user && 
+    laporan.jenis_laporan === 'Ditemukan' && 
+    laporan.pengguna_id !== user.id &&
+    (laporan.status === 'Menunggu' || laporan.status === 'Verifikasi');
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,10 +40,10 @@ export default function ReportDetail() {
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Image */}
           <div className="overflow-hidden rounded-lg bg-muted">
-            {report.gambar_url ? (
+            {laporan.gambar_url ? (
               <img
-                src={report.gambar_url}
-                alt={report.judul_barang}
+                src={laporan.gambar_url}
+                alt={laporan.judul_barang}
                 className="h-full min-h-[300px] w-full object-cover"
               />
             ) : (
@@ -78,21 +57,21 @@ export default function ReportDetail() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="mb-1 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                    {report.category?.nama_kategori}
+                    {laporan.kategori?.nama_kategori}
                   </p>
-                  <CardTitle className="text-2xl">{report.judul_barang}</CardTitle>
+                  <CardTitle className="text-2xl">{laporan.judul_barang}</CardTitle>
                 </div>
-                <StatusBadge status={report.jenis_laporan} />
+                <StatusBadge status={laporan.jenis_laporan} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center text-muted-foreground">
                 <MapPin className="mr-2 h-4 w-4" />
-                {report.lokasi_kejadian}
+                {laporan.lokasi_kejadian}
               </div>
               <div className="flex items-center text-muted-foreground">
                 <Calendar className="mr-2 h-4 w-4" />
-                {new Date(report.tanggal_kejadian).toLocaleDateString('id-ID', {
+                {new Date(laporan.tanggal_kejadian).toLocaleDateString('id-ID', {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
@@ -101,65 +80,68 @@ export default function ReportDetail() {
               </div>
               <div className="flex items-center text-muted-foreground">
                 <User className="mr-2 h-4 w-4" />
-                Dilaporkan oleh {report.profile?.nama_lengkap || 'Anonim'}
+                Dilaporkan oleh {laporan.profil?.nama_lengkap || 'Anonim'}
               </div>
 
               <div className="border-t pt-4">
                 <h3 className="mb-2 font-semibold">Deskripsi</h3>
-                <p className="whitespace-pre-wrap text-muted-foreground">{report.deskripsi}</p>
+                <p className="whitespace-pre-wrap text-muted-foreground">{laporan.deskripsi}</p>
               </div>
 
               <div className="flex items-center gap-2 border-t pt-4">
                 <span className="text-sm text-muted-foreground">Status:</span>
-                <StatusBadge status={report.status} />
+                <StatusBadge status={laporan.status} />
               </div>
 
+              {/* Button Klaim */}
               {canClaim && (
-                <Dialog open={claimDialogOpen} onOpenChange={setClaimDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full">Ajukan Klaim</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Ajukan Klaim Barang</DialogTitle>
-                    </DialogHeader>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(handleClaim)} className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="bukti_tambahan"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bukti Kepemilikan</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Jelaskan bukti bahwa barang ini milik Anda..."
-                                  rows={5}
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button type="submit" className="w-full" disabled={claimLoading}>
-                          {claimLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Kirim Klaim
-                        </Button>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  onClick={() => setClaimModalOpen(true)} 
+                  className="w-full"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  Klaim Barang
+                </Button>
               )}
 
-              {!user && (
-                <Button asChild className="w-full">
-                  <Link to="/auth">Masuk untuk Mengajukan Klaim</Link>
+              {/* Info jika tidak bisa klaim */}
+              {user && laporan.jenis_laporan === 'Ditemukan' && laporan.pengguna_id === user.id && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Anda tidak bisa mengklaim barang sendiri
+                </div>
+              )}
+
+              {user && laporan.jenis_laporan === 'Ditemukan' && laporan.pengguna_id !== user.id && 
+               (laporan.status !== 'Menunggu' && laporan.status !== 'Verifikasi') && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Barang ini tidak bisa diklaim saat ini
+                </div>
+              )}
+
+              {user && laporan.jenis_laporan === 'Hilang' && (
+                <div className="text-sm text-muted-foreground text-center">
+                  Hanya barang ditemukan yang bisa diklaim
+                </div>
+              )}
+
+              {!user && laporan.jenis_laporan === 'Ditemukan' && (
+                <Button asChild className="w-full" variant="outline">
+                  <Link to="/auth">
+                    Masuk untuk Mengajukan Klaim
+                  </Link>
                 </Button>
               )}
             </CardContent>
           </Card>
         </div>
+
+        {/* Claim Modal */}
+        <ClaimModal
+          open={claimModalOpen}
+          onOpenChange={setClaimModalOpen}
+          laporanId={laporan.id}
+          judulBarang={laporan.judul_barang}
+        />
       </main>
     </div>
   );

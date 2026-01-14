@@ -36,7 +36,12 @@ export default function NewReport() {
 
   const onSubmit = async (data: LaporanFormSchema) => {
     const result = await createReport({
-      ...data,
+      jenis_laporan: data.jenis_laporan,
+      judul_barang: data.judul_barang,
+      deskripsi: data.deskripsi,
+      lokasi_kejadian: data.lokasi_kejadian,
+      tanggal_kejadian: data.tanggal_kejadian,
+      kategori_id: data.kategori_id,
       gambar_url: imageUrl,
     });
 

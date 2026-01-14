@@ -5,7 +5,7 @@ CREATE TYPE public.app_role AS ENUM ('admin', 'mahasiswa', 'staff');
 CREATE TYPE public.jenis_laporan AS ENUM ('Hilang', 'Ditemukan');
 
 -- Create report status enum
-CREATE TYPE public.status_laporan AS ENUM ('Menunggu', 'Verifikasi', 'Dikembalikan', 'Selesai');
+CREATE TYPE public.status_laporan AS ENUM ('Menunggu', 'Verifikasi', 'Sedang Diklaim', 'Dikembalikan', 'Selesai');
 
 -- Create claim status enum
 CREATE TYPE public.status_klaim AS ENUM ('Menunggu', 'Disetujui', 'Ditolak');
@@ -13,10 +13,10 @@ CREATE TYPE public.status_klaim AS ENUM ('Menunggu', 'Disetujui', 'Ditolak');
 -- User roles table (separate from profiles for security)
 CREATE TABLE public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL DEFAULT 'mahasiswa',
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  UNIQUE (user_id, role)
+  pengguna_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  peran app_role NOT NULL DEFAULT 'mahasiswa',
+  dibuat_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  UNIQUE (pengguna_id, peran)
 );
 
 -- Profiles table for user info
@@ -24,8 +24,8 @@ CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT,
   nama_lengkap TEXT,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  dibuat_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  diperbarui_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 -- Categories table
@@ -45,7 +45,7 @@ INSERT INTO public.categories (nama_kategori) VALUES
 -- Reports table
 CREATE TABLE public.laporan (
   id SERIAL PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  pengguna_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   kategori_id INTEGER REFERENCES public.categories(id) NOT NULL,
   jenis_laporan jenis_laporan NOT NULL,
   judul_barang TEXT NOT NULL,
@@ -54,19 +54,19 @@ CREATE TABLE public.laporan (
   tanggal_kejadian DATE NOT NULL,
   gambar_url TEXT,
   status status_laporan NOT NULL DEFAULT 'Menunggu',
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  dibuat_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  diperbarui_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 -- Claims table
 CREATE TABLE public.klaim (
   id SERIAL PRIMARY KEY,
   laporan_ditemukan_id INTEGER REFERENCES public.laporan(id) ON DELETE CASCADE NOT NULL,
-  user_id_klaim UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  pengguna_id_klaim UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   bukti_tambahan TEXT,
   status_klaim status_klaim NOT NULL DEFAULT 'Menunggu',
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+  dibuat_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+  diperbarui_pada TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
 
 -- Enable RLS on all tables
@@ -77,7 +77,7 @@ ALTER TABLE public.laporan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.klaim ENABLE ROW LEVEL SECURITY;
 
 -- Security definer function to check roles
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+CREATE OR REPLACE FUNCTION public.has_role(_pengguna_id UUID, _peran app_role)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -87,28 +87,28 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role = _role
+    WHERE pengguna_id = _pengguna_id
+      AND peran = _peran
   )
 $$;
 
 -- Function to get user role
-CREATE OR REPLACE FUNCTION public.get_user_role(_user_id UUID)
+CREATE OR REPLACE FUNCTION public.get_user_role(_pengguna_id UUID)
 RETURNS app_role
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT role
+  SELECT peran
   FROM public.user_roles
-  WHERE user_id = _user_id
+  WHERE pengguna_id = _pengguna_id
   LIMIT 1
 $$;
 
 -- RLS Policies for user_roles
 CREATE POLICY "Users can view their own roles" ON public.user_roles
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING (auth.uid() = pengguna_id);
 
 CREATE POLICY "Admins can view all roles" ON public.user_roles
   FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
@@ -138,20 +138,20 @@ CREATE POLICY "Anyone can view reports" ON public.laporan
   FOR SELECT USING (true);
 
 CREATE POLICY "Authenticated users can create reports" ON public.laporan
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = pengguna_id);
 
 CREATE POLICY "Users can update their own reports" ON public.laporan
-  FOR UPDATE USING (auth.uid() = user_id OR public.has_role(auth.uid(), 'admin'));
+  FOR UPDATE USING (auth.uid() = pengguna_id OR public.has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "Admins can delete reports" ON public.laporan
   FOR DELETE USING (public.has_role(auth.uid(), 'admin'));
 
 -- RLS Policies for klaim
 CREATE POLICY "Users can view their own claims" ON public.klaim
-  FOR SELECT USING (auth.uid() = user_id_klaim OR public.has_role(auth.uid(), 'admin'));
+  FOR SELECT USING (auth.uid() = pengguna_id_klaim OR public.has_role(auth.uid(), 'admin'));
 
 CREATE POLICY "Authenticated users can create claims" ON public.klaim
-  FOR INSERT WITH CHECK (auth.uid() = user_id_klaim);
+  FOR INSERT WITH CHECK (auth.uid() = pengguna_id_klaim);
 
 CREATE POLICY "Admins can update claims" ON public.klaim
   FOR UPDATE USING (public.has_role(auth.uid(), 'admin'));
@@ -161,7 +161,7 @@ CREATE POLICY "Report owners can view claims on their reports" ON public.klaim
     EXISTS (
       SELECT 1 FROM public.laporan 
       WHERE laporan.id = klaim.laporan_ditemukan_id 
-      AND laporan.user_id = auth.uid()
+      AND laporan.pengguna_id = auth.uid()
     )
   );
 
@@ -176,7 +176,7 @@ BEGIN
   INSERT INTO public.profiles (id, email, nama_lengkap)
   VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'nama_lengkap', ''));
   
-  INSERT INTO public.user_roles (user_id, role)
+  INSERT INTO public.user_roles (pengguna_id, peran)
   VALUES (NEW.id, 'mahasiswa');
   
   RETURN NEW;
@@ -191,7 +191,7 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = now();
+  NEW.diperbarui_pada = now();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SET search_path = public;

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Menu, X, LogOut, User, FileText, ClipboardList, Shield } from 'lucide-react';
+import { Search, Menu, X, LogOut, User, FileText, ClipboardList, Shield, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ interface HeaderProps {
 }
 
 export function Header({ onSearch, showSearch = true }: HeaderProps) {
-  const { user, profile, isAdmin, signOut } = useAuth();
+  const { user, profil, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +75,7 @@ export function Header({ onSearch, showSearch = true }: HeaderProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{profile?.nama_lengkap || 'Pengguna'}</p>
+                    <p className="text-sm font-medium">{profil?.nama_lengkap || 'Pengguna'}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator />
@@ -89,6 +89,12 @@ export function Header({ onSearch, showSearch = true }: HeaderProps) {
                     <Link to="/klaim-saya" className="flex cursor-pointer items-center">
                       <ClipboardList className="mr-2 h-4 w-4" />
                       Klaim Saya
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/klaim-laporan-saya" className="flex cursor-pointer items-center">
+                      <Users className="mr-2 h-4 w-4" />
+                      Klaim pada Laporan Saya
                     </Link>
                   </DropdownMenuItem>
                   {isAdmin && (

@@ -51,6 +51,11 @@ export default function MyClaims() {
                     <div>
                       <div className="mb-1 flex items-center gap-2">
                         <StatusBadge status={claim.status_klaim} />
+                        {claim.laporan?.status && (
+                          <span className="text-xs text-muted-foreground">
+                            Status barang: <StatusBadge status={claim.laporan.status} />
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-semibold">{claim.laporan?.judul_barang}</h3>
                       <div className="mt-1 flex flex-wrap gap-3 text-sm text-muted-foreground">
@@ -60,9 +65,15 @@ export default function MyClaims() {
                         </span>
                         <span className="flex items-center">
                           <Calendar className="mr-1 h-3 w-3" />
-                          Diajukan {new Date(claim.created_at).toLocaleDateString('id-ID')}
+                          Diajukan {new Date(claim.dibuat_pada).toLocaleDateString('id-ID')}
                         </span>
                       </div>
+                      {claim.bukti_tambahan && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          <p className="font-medium">Bukti klaim:</p>
+                          <p className="line-clamp-2">{claim.bukti_tambahan.split('|')[0]}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

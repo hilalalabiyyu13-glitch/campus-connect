@@ -10,7 +10,7 @@ import { Search } from 'lucide-react';
 
 export default function Home() {
   const [filters, setFilters] = useState<LaporanFilters>({});
-  const { reports, loading } = useReports(filters);
+  const { laporan: reports, loading } = useReports(filters);
 
   const handleSearch = (query: string) => {
     setFilters((prev) => ({ ...prev, search: query }));
@@ -37,7 +37,7 @@ export default function Home() {
         {/* Reports Grid */}
         {loading ? (
           <PageLoading />
-        ) : reports.length === 0 ? (
+        ) : !reports || reports.length === 0 ? (
           <EmptyState
             icon={Search}
             title="Tidak ada laporan"
@@ -47,9 +47,9 @@ export default function Home() {
           />
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {reports.map((report) => (
-              <ReportCard key={report.id} report={report} />
-            ))}
+              {reports.map((laporanItem) => (
+                <ReportCard key={laporanItem.id} laporan={laporanItem} />
+              ))}
           </div>
         )}
       </main>

@@ -151,7 +151,7 @@ export default function AdminDashboard() {
                         <TableCell className="max-w-[200px] truncate font-medium">
                           {claim.laporan?.judul_barang}
                         </TableCell>
-                        <TableCell>{claim.profile?.nama_lengkap || claim.profile?.email}</TableCell>
+                        <TableCell>{claim.profil?.nama_lengkap || claim.profil?.email}</TableCell>
                         <TableCell>
                           <Select
                             value={claim.status_klaim}

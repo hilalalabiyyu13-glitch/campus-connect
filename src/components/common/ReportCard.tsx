@@ -8,11 +8,11 @@ import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 
 interface ReportCardProps {
-  report: Laporan;
+  laporan: Laporan;
 }
 
-export function ReportCard({ report }: ReportCardProps) {
-  const timeAgo = formatDistanceToNow(new Date(report.created_at), {
+export function ReportCard({ laporan }: ReportCardProps) {
+  const timeAgo = formatDistanceToNow(new Date(laporan.dibuat_pada), {
     addSuffix: true,
     locale: id,
   });
@@ -21,10 +21,10 @@ export function ReportCard({ report }: ReportCardProps) {
     <Card className="group overflow-hidden transition-all hover:shadow-md">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {report.gambar_url ? (
+        {laporan.gambar_url ? (
           <img
-            src={report.gambar_url}
-            alt={report.judul_barang}
+            src={laporan.gambar_url}
+            alt={laporan.judul_barang}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
@@ -33,29 +33,29 @@ export function ReportCard({ report }: ReportCardProps) {
           </div>
         )}
         <div className="absolute left-2 top-2">
-          <StatusBadge status={report.jenis_laporan} />
+          <StatusBadge status={laporan.jenis_laporan} />
         </div>
       </div>
 
       <CardContent className="p-4">
         {/* Category */}
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {report.category?.nama_kategori}
+          {laporan.kategori?.nama_kategori}
         </p>
 
         {/* Title */}
-        <h3 className="mb-2 line-clamp-1 font-semibold">{report.judul_barang}</h3>
+        <h3 className="mb-2 line-clamp-1 font-semibold">{laporan.judul_barang}</h3>
 
         {/* Location */}
         <div className="mb-1 flex items-center text-sm text-muted-foreground">
           <MapPin className="mr-1.5 h-3.5 w-3.5" />
-          <span className="line-clamp-1">{report.lokasi_kejadian}</span>
+          <span className="line-clamp-1">{laporan.lokasi_kejadian}</span>
         </div>
 
         {/* Date */}
         <div className="flex items-center text-sm text-muted-foreground">
           <Calendar className="mr-1.5 h-3.5 w-3.5" />
-          <span>{new Date(report.tanggal_kejadian).toLocaleDateString('id-ID')}</span>
+          <span>{new Date(laporan.tanggal_kejadian).toLocaleDateString('id-ID')}</span>
         </div>
       </CardContent>
 
@@ -65,7 +65,7 @@ export function ReportCard({ report }: ReportCardProps) {
           {timeAgo}
         </div>
         <Button size="sm" variant="outline" asChild>
-          <Link to={`/laporan/${report.id}`}>Lihat Detail</Link>
+          <Link to={`/laporan/${laporan.id}`}>Lihat Detail</Link>
         </Button>
       </CardFooter>
     </Card>

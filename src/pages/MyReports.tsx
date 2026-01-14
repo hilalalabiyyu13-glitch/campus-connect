@@ -9,7 +9,7 @@ import { useUserReports } from '@/hooks/useReports';
 import { FileText, Plus, MapPin, Calendar } from 'lucide-react';
 
 export default function MyReports() {
-  const { reports, loading } = useUserReports();
+  const { laporan: reports, loading } = useUserReports();
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,7 +28,7 @@ export default function MyReports() {
 
         {loading ? (
           <PageLoading />
-        ) : reports.length === 0 ? (
+        ) : (!reports || reports.length === 0) ? (
           <EmptyState
             icon={FileText}
             title="Belum ada laporan"

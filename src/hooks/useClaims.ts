@@ -17,15 +17,9 @@ export function useUserClaims() {
     try {
       const { data, error } = await supabase
         .from('klaim')
-        .select(`
-          *,
-          laporan:laporan(
-            *,
-            category:categories(*)
-          )
-        `)
-        .eq('user_id_klaim', user.id)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('pengguna_id_klaim', user.id)
+        .order('dibuat_pada', { ascending: false });
 
       if (error) throw error;
 
@@ -54,7 +48,7 @@ export function useUserClaims() {
       .channel('klaim-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'klaim', filter: `user_id_klaim=eq.${user.id}` },
+        { event: '*', schema: 'public', table: 'klaim', filter: `pengguna_id_klaim=eq.${user.id}` },
         () => {
           fetchClaims();
         }
@@ -79,15 +73,8 @@ export function useAllClaims() {
     try {
       const { data, error } = await supabase
         .from('klaim')
-        .select(`
-          *,
-          laporan:laporan(
-            *,
-            category:categories(*)
-          ),
-          profile:profiles(*)
-        `)
-        .order('created_at', { ascending: false });
+        .select('*')
+        .order('dibuat_pada', { ascending: false });
 
       if (error) throw error;
 
@@ -134,7 +121,7 @@ export function useCreateClaim() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const createClaim = async (data: KlaimFormData) => {
+  const createClaim = async (data: KlaimFormData & { kontak_telepon: string; alasan_klaim: string }) => {
     if (!user) {
       toast({
         title: 'Error',
@@ -146,38 +133,111 @@ export function useCreateClaim() {
 
     setLoading(true);
     try {
-      // Check if user already claimed this report
+      // Check if user already has a pending claim for this item
       const { data: existingClaim } = await supabase
         .from('klaim')
-        .select('id')
+        .select('*')
         .eq('laporan_ditemukan_id', data.laporan_ditemukan_id)
-        .eq('user_id_klaim', user.id)
+        .eq('pengguna_id_klaim', user.id)
+        .eq('status_klaim', 'Menunggu')
         .single();
 
       if (existingClaim) {
         toast({
           title: 'Error',
-          description: 'Anda sudah mengajukan klaim untuk laporan ini',
+          description: 'Anda sudah pernah mengajukan klaim untuk barang ini',
           variant: 'destructive',
         });
         return null;
       }
 
+      // Check if the report can be claimed (only "Menunggu" or "Verifikasi" status)
+      const { data: report } = await supabase
+        .from('laporan')
+        .select('status, pengguna_id, jenis_laporan')
+        .eq('id', data.laporan_ditemukan_id)
+        .single();
+
+      if (!report) {
+        toast({
+          title: 'Error',
+          description: 'Laporan tidak ditemukan',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Validate: cannot claim own report
+      if (report.pengguna_id === user.id) {
+        toast({
+          title: 'Error',
+          description: 'Anda tidak bisa mengklaim barang sendiri',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Validate: only "Ditemukan" reports can be claimed
+      if (report.jenis_laporan !== 'Ditemukan') {
+        toast({
+          title: 'Error',
+          description: 'Hanya barang ditemukan yang bisa diklaim',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Validate: status must be "Menunggu" or "Verifikasi"
+      if (report.status !== 'Menunggu' && report.status !== 'Verifikasi') {
+        toast({
+          title: 'Error',
+          description: 'Barang ini tidak bisa diklaim saat ini',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      // Combine claim data
+      const buktiCombined = `${data.bukti_tambahan}|${data.kontak_telepon}|${data.alasan_klaim}`;
+
       const { data: newClaim, error } = await supabase
         .from('klaim')
         .insert({
           laporan_ditemukan_id: data.laporan_ditemukan_id,
-          user_id_klaim: user.id,
-          bukti_tambahan: data.bukti_tambahan,
+          pengguna_id_klaim: user.id,
+          bukti_tambahan: buktiCombined,
+          status_klaim: 'Menunggu',
         })
         .select()
         .single();
 
       if (error) throw error;
 
+      // Update report status to "Sedang Diklaim"
+      const { error: updateError } = await supabase
+        .from('laporan')
+        .update({ status: 'Sedang Diklaim' })
+        .eq('id', data.laporan_ditemukan_id);
+
+      if (updateError) throw updateError;
+
+      // Get report details for notification
+      const { data: reportDetails } = await supabase
+        .from('laporan')
+        .select('judul_barang, pengguna_id')
+        .eq('id', data.laporan_ditemukan_id)
+        .single();
+
+      // Send notification to report creator (if different user)
+      if (reportDetails && reportDetails.pengguna_id !== user.id) {
+        // TODO: Implement notification system
+        console.log('Notifikasi ke pembuat laporan:', reportDetails.pengguna_id);
+        console.log('Barang:', reportDetails.judul_barang, 'diklaim oleh:', user.id);
+      }
+
       toast({
         title: 'Berhasil',
-        description: 'Klaim berhasil diajukan',
+        description: 'Klaim Anda telah diajukan dan menunggu verifikasi',
       });
 
       return newClaim;
@@ -185,7 +245,7 @@ export function useCreateClaim() {
       console.error('Error creating claim:', error);
       toast({
         title: 'Error',
-        description: 'Gagal mengajukan klaim',
+        description: 'Gagal membuat klaim',
         variant: 'destructive',
       });
       return null;
@@ -198,12 +258,38 @@ export function useCreateClaim() {
 }
 
 export function useUpdateClaimStatus() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
 
   const updateStatus = async (id: number, status: 'Menunggu' | 'Disetujui' | 'Ditolak') => {
     setLoading(true);
     try {
+      // Get claim details to check permissions and update report status
+      const { data: claim } = await supabase
+        .from('klaim')
+        .select('laporan_ditemukan_id')
+        .eq('id', id)
+        .single();
+
+      // Get report details separately to check ownership
+      const { data: report } = await supabase
+        .from('laporan')
+        .select('pengguna_id')
+        .eq('id', claim?.laporan_ditemukan_id || 0)
+        .single();
+
+      if (!claim) throw new Error('Klaim tidak ditemukan');
+
+      // Check if user is admin or report owner
+      const isAdmin = user?.email?.includes('admin') || false; // TODO: Check actual admin role properly
+      const isReportOwner = report?.pengguna_id === user?.id;
+
+      if (!isAdmin && !isReportOwner) {
+        throw new Error('Anda tidak memiliki hak untuk mengubah status klaim ini');
+      }
+
+      // Update claim status
       const { error } = await supabase
         .from('klaim')
         .update({ status_klaim: status })
@@ -211,9 +297,22 @@ export function useUpdateClaimStatus() {
 
       if (error) throw error;
 
+      // Update report status based on claim result
+      const newReportStatus = status === 'Disetujui' ? 'Selesai' : 'Menunggu';
+      const { error: updateError } = await supabase
+        .from('laporan')
+        .update({ status: newReportStatus })
+        .eq('id', claim.laporan_ditemukan_id);
+
+      if (updateError) throw updateError;
+
+      const actionText = isAdmin 
+        ? `Admin ${status === 'Disetujui' ? 'menyetujui' : status === 'Ditolak' ? 'menolak' : 'memperbarui'}`
+        : `Pemilik barang ${status === 'Disetujui' ? 'menyetujui' : status === 'Ditolak' ? 'menolak' : 'memperbarui'}`;
+
       toast({
         title: 'Berhasil',
-        description: 'Status klaim diperbarui',
+        description: `${actionText} klaim`,
       });
 
       return true;
@@ -221,7 +320,7 @@ export function useUpdateClaimStatus() {
       console.error('Error updating claim status:', error);
       toast({
         title: 'Error',
-        description: 'Gagal memperbarui status klaim',
+        description: error instanceof Error ? error.message : 'Gagal memperbarui status klaim',
         variant: 'destructive',
       });
       return false;

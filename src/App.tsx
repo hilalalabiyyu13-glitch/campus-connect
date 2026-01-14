@@ -12,6 +12,7 @@ import NewReport from "./pages/NewReport";
 import ReportDetail from "./pages/ReportDetail";
 import MyReports from "./pages/MyReports";
 import MyClaims from "./pages/MyClaims";
+import MyReportClaims from "./pages/MyReportClaims";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -23,7 +24,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
@@ -49,6 +50,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <MyClaims />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/klaim-laporan-saya"
+              element={
+                <ProtectedRoute>
+                  <MyReportClaims />
                 </ProtectedRoute>
               }
             />
